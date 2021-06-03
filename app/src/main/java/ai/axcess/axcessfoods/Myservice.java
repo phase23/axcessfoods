@@ -6,8 +6,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -44,6 +46,9 @@ public class Myservice extends Service  {
     private final int TWENTY_SECONDS = 2000;
     public Handler handler;
     MediaPlayer player;
+    boolean isRunning = false;
+    public Handler handler2;
+    boolean checkOrder = false;
 
 
     @Override
@@ -54,6 +59,8 @@ public class Myservice extends Service  {
 
     @Override
     public void onCreate() {
+
+        getApplicationContext().registerReceiver(broadcastReceiver, new IntentFilter("stopchecks"));
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
 
@@ -95,7 +102,7 @@ public class Myservice extends Service  {
             public void run() {
 
 
-
+                checkOrder = true;
                 isneworder();
 
                 // this method will contain your almost-finished HTTP calls
@@ -130,6 +137,32 @@ public class Myservice extends Service  {
         startForeground(2, notification);
     }
 
+
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String send = intent.getStringExtra("send");
+            //Log.d(TAG, "Data received is : " +  intent.getStringExtra("message"));
+            //Toast.makeText(getApplicationContext(), "We got off." + send, Toast.LENGTH_LONG).show();
+
+            //check if its running
+            Log.i("check we in..","in");
+            if(checkOrder) {
+                // Log.i("check order pass..","in");
+                handler.removeCallbacksAndMessages(null);
+                checkOrder = false;
+            }
+
+        }
+    };
+
+    public void onResume() {
+        getApplicationContext().registerReceiver(broadcastReceiver, new IntentFilter("stopchecks"));
+    }
+
+    protected void onPause() {
+        getApplicationContext().unregisterReceiver(broadcastReceiver);
+    }
 
 
     public void isneworder() {
@@ -174,6 +207,7 @@ public class Myservice extends Service  {
             if(player != null){
                 player.stop();
             }
+
 
             }else {
 

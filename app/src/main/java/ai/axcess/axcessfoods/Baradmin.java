@@ -2,42 +2,55 @@ package ai.axcess.axcessfoods;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.net.http.SslError;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.StrictMode;
-import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.Toast;
 
-import com.onesignal.OneSignal;
+import dmax.dialog.SpotsDialog;
 
-
-public class MainActivity extends AppCompatActivity {
-    private static final String ONESIGNAL_APP_ID = "070e3946-98cd-4d8e-b3f6-ce12c3257c72";
-    MediaPlayer player;
+public class Baradmin extends AppCompatActivity {
+    Button llogout;
+    String cunq;
+    Handler handler;
+    Handler handler2;
+    AlertDialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_baradmin);
 
-        OneSignal.setLogLevel(OneSignal.LOG_LEVEL.VERBOSE, OneSignal.LOG_LEVEL.NONE);
+        SharedPreferences shared = getSharedPreferences("autoLogin", MODE_PRIVATE);
+        SharedPreferences.Editor prefsEditor = shared.edit();
 
-        String deviceId = Settings.Secure.getString(this.getContentResolver(),
-                Settings.Secure.ANDROID_ID);
 
-        Log.i("log device", deviceId);
 
+        dialog = new SpotsDialog.Builder()
+                .setMessage("Please Wait Loading...")
+                .setContext(Baradmin.this)
+                .build();
+        dialog.show();
+
+
+
+        Intent i = new Intent(this, Myservice.class);
+        this.startService(i);
 
         AudioManager am =
                 (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -47,12 +60,51 @@ public class MainActivity extends AppCompatActivity {
                 am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
                 0);
 
-        // OneSignal Initialization
-        OneSignal.initWithContext(this);
-        OneSignal.setAppId(ONESIGNAL_APP_ID);
 
-       // Intent i = new Intent(this, Myservice.class);
-        //this.startService(i);
+        cunq = shared.getString("barowner", "");
+        int j = shared.getInt("key", 0);
+
+
+
+        llogout = (Button)findViewById(R.id.logout);
+
+        llogout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                shared.edit().clear().commit();
+
+                Intent offintent = new Intent("stopchecks");
+                offintent.putExtra("send", "off");
+                offintent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getApplicationContext().sendBroadcast(offintent);
+
+
+
+                dialog = new SpotsDialog.Builder()
+                        .setMessage("Please Wait")
+                        .setContext(Baradmin.this)
+                        .build();
+                dialog.show();
+
+                handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run(){
+
+                        stopService(new Intent(Baradmin.this, Myservice.class));
+                        Intent intent = new Intent(Baradmin.this, Loginuser.class);
+                        startActivity(intent);
+
+                        dialog.dismiss();
+
+                    }
+                }, 1000);
+
+
+            }
+
+        });
+
 
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
@@ -67,7 +119,8 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
         //webView.setWebViewClient(new WebViewClient());
         //WebView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("https://axcess.ai/barapp/");
+        webView.loadUrl("http://axcess.ai/barapp/loadurl.php?barownerid=" + cunq);
+
 
         webView.setWebViewClient(new WebViewClient() {
 
@@ -80,26 +133,21 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                Toast.makeText(getApplicationContext(), url + "\n\n", Toast.LENGTH_LONG).show();
+                //Toast.makeText(getApplicationContext(), url + "\n\n", Toast.LENGTH_LONG).show();
+                Log.d("WebView", url);
+                if (url.equals("https://axcess.ai/barapp/andriodapp.php")) {
+
+                    Toast.makeText(getApplicationContext(), "Preparing your dasboard", Toast.LENGTH_LONG).show();
+                    dialog.dismiss();
+
+
+
+                }
+
+
 
                 super.onPageFinished(view, url);
-                /*
-                if (url.contains("andriodapp")) {
-                    Log.d("WebView", "We can start service" + url);
-                    Toast.makeText(getApplicationContext(), "We can start service \n" + url, Toast.LENGTH_LONG).show();
-                }
 
-                 */
-
-                if (url.equals("https://axcess.ai/barapp/andriodapp.php")) {
-                    Log.d("WebView", "We can start service\n" + url);
-                    Toast.makeText(getApplicationContext(), "We can start service \n" + url, Toast.LENGTH_LONG).show();
-                }
-
-                if (url.equals("https://axcess.ai/barapp/")) {
-                    Log.d("WebView", "We can stop the service\n" + url);
-                    Toast.makeText(getApplicationContext(), "We can stop service \n" + url, Toast.LENGTH_LONG).show();
-                }
 
             }
 
@@ -140,4 +188,5 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show();
         }
     }
+
 }
