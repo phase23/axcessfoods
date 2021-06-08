@@ -114,8 +114,12 @@ public class Myservice extends Service  {
 
     }
 
-
-
+/*
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
+    }
+*/
 
     private void startMyOwnForeground(){
         String NOTIFICATION_CHANNEL_ID = "com.example.simpleapp";

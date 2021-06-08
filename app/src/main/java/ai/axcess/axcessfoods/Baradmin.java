@@ -26,10 +26,14 @@ import dmax.dialog.SpotsDialog;
 
 public class Baradmin extends AppCompatActivity {
     Button llogout;
+    Button transactions;
     String cunq;
+    String whichsection;
+    String getsection;
     Handler handler;
     Handler handler2;
     AlertDialog dialog;
+    WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,18 +69,23 @@ public class Baradmin extends AppCompatActivity {
         int j = shared.getInt("key", 0);
 
 
-
         llogout = (Button)findViewById(R.id.logout);
+        llogout.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_baseline_exit_to_app_24, 0, 0, 0);
 
-        llogout.setOnClickListener(new View.OnClickListener() {
+        llogout.setTag("Logout");
+        transactions = (Button)findViewById(R.id.transactions);
+
+
+        transactions.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                shared.edit().clear().commit();
 
-                Intent offintent = new Intent("stopchecks");
-                offintent.putExtra("send", "off");
-                offintent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getApplicationContext().sendBroadcast(offintent);
+
+                setSection("Settings");
+                transactions.setVisibility(View.INVISIBLE);
+                llogout.setText("Dashboad");
+                llogout.setTag("Return");
+                llogout.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_baseline_transit_enterexit_24, 0, 0, 0);
 
 
 
@@ -91,16 +100,60 @@ public class Baradmin extends AppCompatActivity {
                     @Override
                     public void run(){
 
-                        stopService(new Intent(Baradmin.this, Myservice.class));
-                        Intent intent = new Intent(Baradmin.this, Loginuser.class);
-                        startActivity(intent);
-
-                        dialog.dismiss();
-
+                Baradmin.this.webView.loadUrl("https://axcess.ai/bar/app.php");
+                       // dialog.dismiss();
                     }
-                }, 1000);
+                }, 3000);
+
+            }
+
+        });
+
+        llogout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 
 
+                String tag = (String) llogout.getTag();
+
+                if(tag.equals("Return")) {
+                    llogout.setText("Logout");
+                    llogout.setTag("Logout");
+                    transactions.setVisibility(View.VISIBLE);
+                    Baradmin.this.webView.loadUrl("http://axcess.ai/barapp/loadurl.php?barownerid=" + cunq);
+                    llogout.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_baseline_exit_to_app_24, 0, 0, 0);
+
+                }else {
+
+                    shared.edit().clear().commit();
+
+                    Intent offintent = new Intent("stopchecks");
+                    offintent.putExtra("send", "off");
+                    offintent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getApplicationContext().sendBroadcast(offintent);
+
+
+                    dialog = new SpotsDialog.Builder()
+                            .setMessage("Please Wait")
+                            .setContext(Baradmin.this)
+                            .build();
+                    dialog.show();
+
+                    handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            stopService(new Intent(Baradmin.this, Myservice.class));
+                            Intent intent = new Intent(Baradmin.this, Loginuser.class);
+                            startActivity(intent);
+
+                            dialog.dismiss();
+
+                        }
+                    }, 1000);
+
+                }//emd if
             }
 
         });
@@ -109,7 +162,11 @@ public class Baradmin extends AppCompatActivity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
-        WebView webView = (WebView) findViewById(R.id.web);
+        String thissection = getSection();
+
+
+
+        webView = (WebView) findViewById(R.id.web);
         webView.addJavascriptInterface(new WebAppInterface(this), "android");
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setLoadWithOverviewMode(true);
@@ -135,14 +192,55 @@ public class Baradmin extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 //Toast.makeText(getApplicationContext(), url + "\n\n", Toast.LENGTH_LONG).show();
                 Log.d("WebView", url);
-                if (url.equals("https://axcess.ai/barapp/andriodapp.php")) {
 
+                if (url.equals("https://axcess.ai/barapp/andriodapp.php")) {
                     Toast.makeText(getApplicationContext(), "Preparing your dasboard", Toast.LENGTH_LONG).show();
                     dialog.dismiss();
 
+                }
+
+                if (url.equals("https://axcess.ai/bar/app.php")) {
+                    Toast.makeText(getApplicationContext(), "Loading", Toast.LENGTH_LONG).show();
+                    dialog.dismiss();
+
+                }
+
+                if (url.equals("https://axcess.ai/barapp/restart.php")) {
+                    Toast.makeText(getApplicationContext(), "App timeout- Restarting", Toast.LENGTH_LONG).show();
+
+                    shared.edit().clear().commit();
+
+                    Intent offintent = new Intent("stopchecks");
+                    offintent.putExtra("send", "off");
+                    offintent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getApplicationContext().sendBroadcast(offintent);
+
+
+                    dialog = new SpotsDialog.Builder()
+                            .setMessage("Please Wait")
+                            .setContext(Baradmin.this)
+                            .build();
+                    dialog.show();
+
+                    handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            stopService(new Intent(Baradmin.this, Myservice.class));
+                            Intent intent = new Intent(Baradmin.this, Loginuser.class);
+                            startActivity(intent);
+
+                            dialog.dismiss();
+
+                        }
+                    }, 1000);
 
 
                 }
+
+
+
 
 
 
@@ -169,6 +267,17 @@ public class Baradmin extends AppCompatActivity {
 
 
     }
+
+
+    public String getSection() {
+
+        return whichsection;
+    }
+
+    public void setSection(String newName) {
+        this.whichsection = newName;
+    }
+
 
     public class WebAppInterface {
         Context mContext;
