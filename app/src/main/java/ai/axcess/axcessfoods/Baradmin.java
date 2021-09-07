@@ -1,5 +1,6 @@
 package ai.axcess.axcessfoods;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.AlertDialog;
@@ -7,12 +8,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.net.http.SslError;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.StrictMode;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceResponse;
@@ -20,9 +24,29 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+import java.io.IOException;
+
 import dmax.dialog.SpotsDialog;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+import static android.content.ContentValues.TAG;
+import static android.graphics.Color.RED;
 
 public class Baradmin extends AppCompatActivity {
     Button llogout;
@@ -34,6 +58,10 @@ public class Baradmin extends AppCompatActivity {
     Handler handler2;
     AlertDialog dialog;
     WebView webView;
+    Boolean isRunning = false;
+    MediaPlayer player;
+    TextView setdevice;
+    String cookieval;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,8 +81,8 @@ public class Baradmin extends AppCompatActivity {
 
 
 
-        Intent i = new Intent(this, Myservice.class);
-        this.startService(i);
+        //Intent i = new Intent(this, Myservice.class);
+        //this.startService(i);
 
         AudioManager am =
                 (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -74,6 +102,104 @@ public class Baradmin extends AppCompatActivity {
 
         llogout.setTag("Logout");
         transactions = (Button)findViewById(R.id.transactions);
+
+
+
+        String thisdevice = Settings.Secure.getString(this.getContentResolver(),
+                Settings.Secure.ANDROID_ID);
+
+        setdevice = (TextView)findViewById(R.id.deviceid);
+        setdevice.setText(thisdevice);
+
+
+        FirebaseDatabase database = FirebaseDatabase.getInstance("https://axcessdrivers-default-rtdb.firebaseio.com/");
+        //DatabaseReference restaurant = database.getReference(thisdevice); // yourwebisteurl/rootNode if it exist otherwise don't pass any string to it.
+        //restaurant.child("waitingstatus").setValue("waiting");
+
+
+        DatabaseReference restaurant = FirebaseDatabase.getInstance().getReference(thisdevice);
+        restaurant.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.hasChild("waitingstatus")) {
+                    // Exist! Do whatever.
+                } else {
+                    // Don't exist! Do something.
+                    restaurant.child("waitingstatus").setValue("waiting");
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed, how to handle?
+
+            }
+
+        });
+
+
+
+        restaurant.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // This method is called once with the initial value and again
+                // whenever data at this location is updated.
+
+                String alert = dataSnapshot.child("waitingstatus").getValue(String.class);
+                //boolean isSeen = ds.child("isSeen").getValue(Boolean.class);
+                //Log.d(TAG, "Value is: " + value);
+                // Toast.makeText(getApplicationContext(), "Value is:" + value + " Alert: " + alert, Toast.LENGTH_LONG).show();
+                //Toast.makeText(getApplicationContext(), "changed : " + value, Toast.LENGTH_LONG).show();
+
+                if(alert.equals("alert")){
+                    if(isRunning) {
+
+                        // Toast.makeText(getApplicationContext(), "Runing already Alert: " + alert, Toast.LENGTH_LONG).show();
+
+                    }else {
+
+                       // Toast.makeText(getApplicationContext(), "Not Runing already Alert: " + alert, Toast.LENGTH_LONG).show();
+
+                        if( !am.isMusicActive()) {
+
+                            isRunning = true;
+                            startplayer();
+                            // Toast.makeText(getApplicationContext(), "Alert on : " + alert, Toast.LENGTH_LONG).show();
+
+                        }
+
+
+
+                    }
+
+
+                }else{
+
+
+                    if(isRunning) {
+                        isRunning = false;
+                    }
+
+                    if(player != null){
+                        player.stop();
+                        player.release();
+                        player = null;
+                    }
+
+                }
+
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "AxcessEats Welcome.", error.toException());
+            }
+        });
+
+
+
 
 
         transactions.setOnClickListener(new View.OnClickListener() {
@@ -197,6 +323,35 @@ public class Baradmin extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "Preparing your dasboard", Toast.LENGTH_LONG).show();
                     dialog.dismiss();
 
+
+                    String cookies = CookieManager.getInstance().getCookie(url);
+                    Log.d(TAG, "All the cookies in a string:" + cookies);
+                    cookieval = getCookie(url ,"cbarunq");
+                    Log.d(TAG, "my cookies: " + cookieval);
+
+
+                    if(cookieval != null){
+
+
+                        try {
+                            senddeviceid("https://axcess.ai/barapp/senddeviceid.php?cbarunq="+cookieval + "&device="+thisdevice);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+
+                        try {
+                            senddeviceid("http://axcess.ai/barapp/senddeviceid.php?cbarunq="+cookieval + "&device="+thisdevice);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+
+                    }
+
+
+
+
                 }
 
                 if (url.equals("https://axcess.ai/bar/app.php")) {
@@ -268,6 +423,16 @@ public class Baradmin extends AppCompatActivity {
 
     }
 
+    public void startplayer(){
+
+        player = MediaPlayer.create(this, R.raw.beep6);
+        player.setVolume(20, 20);
+        player.start();
+        //player.stop();
+        //player.release();
+    }
+
+
 
     public String getSection() {
 
@@ -277,6 +442,69 @@ public class Baradmin extends AppCompatActivity {
     public void setSection(String newName) {
         this.whichsection = newName;
     }
+
+
+
+    void senddeviceid(String url) throws IOException {
+        Log.d(TAG, "url:" + url);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+
+        OkHttpClient client = new OkHttpClient();
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(final Call call, IOException e) {
+                        // Error
+
+
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                // For the example, you can show an error dialog or a toast
+                                // on the main UI thread
+                               // Toast.makeText(getApplicationContext(), "Device status: " + e, Toast.LENGTH_LONG).show();
+
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onResponse(Call call, final Response response) throws IOException {
+
+                        String resulting = response.body().string();
+                        //Toast.makeText(getApplicationContext(), "Device status: " + resulting, Toast.LENGTH_LONG).show();
+
+
+                    }//end void
+
+                });
+    }
+
+
+
+
+    public String getCookie(String siteName,String CookieName){
+        String CookieValue = null;
+
+        CookieManager cookieManager = CookieManager.getInstance();
+        String cookies = cookieManager.getCookie(siteName);
+        if(cookies != null){
+            String[] temp=cookies.split(";");
+            for (String ar1 : temp ){
+                if(ar1.contains(CookieName)){
+                    String[] temp1=ar1.split("=");
+                    CookieValue = temp1[1];
+                }
+            }
+        }
+        return CookieValue;
+    }
+
+
 
 
     public class WebAppInterface {
